@@ -76,8 +76,6 @@ class Snapshot
   def recent_snapshots(username)
     docs = @collection.find({ channel: /^#{username}$/i }).sort({ timestamp: -1 }).limit(2).to_a
     after, before = docs
-    after ||= []
-    before ||= []
     [before, after]
   end
 end
@@ -144,10 +142,15 @@ def send_report(username, email)
   db = mongo.db('unfollowerbot')
   collection = db.collection('snapshots')
 
+  puts "Taking snapshot for #{username}."
   snapshot = Snapshot.new(collection)
   snapshot.save(username)
 
+  puts "Fetching recent snapshots for #{username}."
   before, after = snapshot.recent_snapshots(username)
+  return if !before || !after
+
+  puts "Sending report to #{email} for #{username}."
   mail_report(email, before, after)
 end
 
@@ -160,3 +163,4 @@ if !username || !email
 end
 
 send_report(username, email)
+puts 'Fin.'
