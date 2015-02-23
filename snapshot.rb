@@ -156,7 +156,7 @@ email = ARGV[1]
 
 if !username || !email
   puts 'Usage: snapshot <twitch username> <email>'
-  exit -1
+  exit 1
 end
 
 send_report(username, email)
