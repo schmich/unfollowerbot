@@ -10,8 +10,18 @@ class Twitch
   def self.followers(username)
     names = Set.new
 
+    last_request = Time.now
+
     follows_urls(username) do |url|
+      # Sleep 1 second between requests.
+      now = Time.now
+      delta = now - last_request
+      delay = [1 - delta, 0].max
+      sleep delay
+
       json = JSON.parse(open(url, 'Accept' => 'application/vnd.twitchtv.v3+json').read)
+      last_request = now
+
       batch = json['follows'].map { |f| f['user']['name'] }
       break if batch.empty?
       names += batch
