@@ -5,6 +5,10 @@ require 'set'
 require 'mail'
 require 'erb'
 require 'tzinfo'
+require 'logger'
+
+$log = Logger.new(STDOUT)
+$log.level = Logger::DEBUG
 
 class Twitch
   def self.followers(username)
@@ -123,7 +127,7 @@ class Report
   end
 end
 
-def mail_report(email, snapshot_before, snapshot_after)
+def mail_report(emails, report)
   Mail.defaults do
     delivery_method :smtp, {
       address: 'smtp.gmail.com',
@@ -136,41 +140,42 @@ def mail_report(email, snapshot_before, snapshot_after)
   end
 
   Mail.deliver do
-    to email
+    to emails
     from 'unfollowerbot <unfollowerbot@gmail.com>'
     subject "Twitch follower report for #{Time.now.strftime('%m/%d')}"
 
     html_part do
       content_type 'text/html; charset=UTF-8'
-      body Report.new(snapshot_before, snapshot_after).html
+      body report.html
     end
   end
 end
 
-def send_report(username, email)
+def snapshot_report(username, emails)
   mongo = Mongo::MongoClient.new('127.0.0.1')
   db = mongo.db('unfollowerbot')
   collection = db.collection('snapshots')
 
-  puts "Taking snapshot for #{username}."
+  $log.info "Taking snapshot for #{username}."
   snapshot = Snapshot.new(collection)
   snapshot.save(username)
 
-  puts "Fetching recent snapshots for #{username}."
+  $log.info "Fetching recent snapshots for #{username}."
   before, after = snapshot.recent_snapshots(username)
   return if !before || !after
 
-  puts "Sending report to #{email} for #{username}."
-  mail_report(email, before, after)
+  $log.info "Sending report to #{emails.join(', ')} for #{username}."
+  report = Report.new(before, after)
+  mail_report(emails, report)
 end
 
 username = ARGV[0]
-email = ARGV[1]
+emails = ARGV[1]
 
-if !username || !email
-  puts 'Usage: snapshot <twitch username> <email>'
+if !username || !emails
+  $log.error 'Usage: snapshot <twitch username> <emails>'
   exit 1
 end
 
-send_report(username, email)
-puts 'Fin.'
+snapshot_report(username, emails.split(';'))
+$log.info 'Fin.'
