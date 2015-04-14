@@ -38,7 +38,7 @@ class Twitch
     offset = 0
     loop do
       yield "https://api.twitch.tv/kraken/channels/#{username}/follows?limit=100&offset=#{offset}&direction=ASC"
-      offset += 90
+      offset += 80
     end
   end
 end
