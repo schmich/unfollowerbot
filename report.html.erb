@@ -1,7 +1,7 @@
 <% diff = added.length - removed.length %>
-<h2>Net Followers <%= (diff < 0) ? '' : '+' %><%= diff %> (<%= after['followers'].length %>)</h2>
+<h2>Net Followers <%= (diff < 0) ? '' : '+' %><%= diff %> (<%= after.followers.length %>)</h2>
 <% tz = ::TZInfo::Timezone.get('America/Chicago') %>
-<% since = tz.utc_to_local(before['timestamp'].utc).strftime('%b %d %H:%M:%S %P').gsub(/\s*UTC/, '') %>
+<% since = tz.utc_to_local(before.timestamp.utc).strftime('%b %d %H:%M:%S %P').gsub(/\s*UTC/, '') %>
 Since <%= since %>
 <h3>Followers (+<%= added.length %>)</h3>
 <% if !added.empty? %>
