@@ -1,0 +1,1 @@
+0 12 * * * ruby /srv/unfollowerbot/snapshot.rb /etc/unfollowerbot/config.json

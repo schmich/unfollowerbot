@@ -127,33 +127,29 @@ class Report
     @diff.added
   end
 
-  def email(emails)
+  def email(emails, email_configuration)
     Mail.defaults do
-      delivery_method :smtp, {
-        address: 'smtp.gmail.com',
-        port: 587,
-        user_name: 'unfollowerbot@gmail.com',
-        password: ENV['UNFOLLOWERBOT_EMAIL_PASSWORD'],
-        authentication: 'plain',
-        enable_starttls_auto: true
-      }
+      delivery_method :smtp, email_configuration
     end
 
+    address = email_configuration[:user_name]
+
+    body = to_html
     Mail.deliver do
       to emails
-      from 'unfollowerbot <unfollowerbot@gmail.com>'
+      from "Unfollowerbot <#{address}>"
       subject "Twitch follower report for #{Time.now.strftime('%m/%d')}"
 
       html_part do
         content_type 'text/html; charset=UTF-8'
-        body self.html
+        body body
       end
     end
   end
 
   private
 
-  def html
+  def to_html
     template_path = File.absolute_path(File.join(File.dirname(__FILE__), 'report.html.erb'))
     template = ERB.new(File.read(template_path))
     return template.result(binding)
@@ -161,11 +157,12 @@ class Report
 end
 
 class SnapshotReportManager
-  def initialize(snapshot_dir)
+  def initialize(config, snapshot_dir)
+    @config = config
     @snapshot_dir = snapshot_dir
   end
 
-  def update(channel, emails)
+  def update(channel)
     FileUtils.mkdir_p(@snapshot_dir)
     snapshot_filename = "#{@snapshot_dir}/#{channel.downcase}.json"
 
@@ -178,18 +175,25 @@ class SnapshotReportManager
 
     after = Snapshot.create(channel)
 
-    if before && after
-      report = Report.new(before, after)
-      if report.removed.empty? && report.added.empty?
-        $log.info 'No new followers or unfollowers, not sending report.'
-        return
-      else
-        $log.info "Sending report to #{emails.join(', ')} for #{channel}."
-        report.email(emails)
-      end
-    else
+    if !before || !after
       $log.info 'No snapshot to compare with, not sending report.'
+      return
     end
+
+    report = Report.new(before, after)
+    if report.removed.empty? && report.added.empty?
+      $log.info 'No new followers or unfollowers, not sending report.'
+      return
+    end
+
+    emails = @config[:email][:to]
+    if !emails || emails.empty?
+      $log.info 'No email recipients, not sending report.'
+      return
+    end
+
+    $log.info "Sending report to #{emails.join(', ')} for #{channel}."
+    report.email(emails, @config[:email])
 
     after.save(snapshot_filename)
   end
@@ -198,16 +202,22 @@ end
 $log = Logger.new(STDOUT)
 $log.level = Logger::DEBUG
 
-channel = ARGV[0]
-emails = ARGV[1]
+config_file = ARGV[0]
+if !config_file
+  $log.error 'Usage: snapshot <config file>'
+  exit 1
+end
 
-if !channel || !emails
-  $log.error 'Usage: snapshot <twitch channel> <emails>'
+config = JSON.parse(File.read(config_file), symbolize_names: true)
+
+channel = config[:channel]
+if !channel
+  $log.error 'Configuration does not define channel.'
   exit 1
 end
 
 $log.info "Doing snapshot update for #{channel}."
 snapshot_dir = File.absolute_path(File.join(File.dirname(__FILE__), 'snapshots'))
-manager = SnapshotReportManager.new(snapshot_dir)
-manager.update(channel, emails.split(';'))
+manager = SnapshotReportManager.new(config, snapshot_dir)
+manager.update(channel)
 $log.info 'Fin.'
