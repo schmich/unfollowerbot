@@ -12,7 +12,7 @@ COPY start.sh /start.sh
 RUN chmod +x /start.sh
 RUN gem install bundler
 COPY crontab /var/spool/cron/crontabs/root
-COPY . /srv/unfollowerbot
+COPY src /srv/unfollowerbot
 WORKDIR /srv/unfollowerbot
 RUN bundle install
 ENTRYPOINT ["/start.sh"]
