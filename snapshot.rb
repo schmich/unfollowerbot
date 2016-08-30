@@ -175,27 +175,29 @@ class SnapshotReportManager
 
     after = Snapshot.create(channel)
 
-    if !before || !after
-      $log.info 'No snapshot to compare with, not sending report.'
-      return
+    begin
+      if !before || !after
+        $log.info 'No snapshot to compare with, not sending report.'
+        return
+      end
+
+      report = Report.new(before, after)
+      if report.removed.empty? && report.added.empty?
+        $log.info 'No new followers or unfollowers, not sending report.'
+        return
+      end
+
+      emails = @config[:email][:to]
+      if !emails || emails.empty?
+        $log.info 'No email recipients, not sending report.'
+        return
+      end
+
+      $log.info "Sending report to #{emails.join(', ')} for #{channel}."
+      report.email(emails, @config[:email])
+    ensure
+      after.save(snapshot_filename)
     end
-
-    report = Report.new(before, after)
-    if report.removed.empty? && report.added.empty?
-      $log.info 'No new followers or unfollowers, not sending report.'
-      return
-    end
-
-    emails = @config[:email][:to]
-    if !emails || emails.empty?
-      $log.info 'No email recipients, not sending report.'
-      return
-    end
-
-    $log.info "Sending report to #{emails.join(', ')} for #{channel}."
-    report.email(emails, @config[:email])
-
-    after.save(snapshot_filename)
   end
 end
 
