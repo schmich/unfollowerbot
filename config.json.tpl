@@ -1,6 +1,9 @@
 {
   "time_zone": "US/Central",
-  "channel": "twitch_username",
+  "twitch": {
+    "channel": "twitch_username",
+    "client_id": "twitch_client_id"
+  },
   "email": {
     "to": [
       "one@email.invalid",

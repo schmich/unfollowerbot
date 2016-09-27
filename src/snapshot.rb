@@ -8,6 +8,10 @@ require 'logger'
 require 'fileutils'
 
 class Twitch
+  class << self
+    attr_accessor :client_id
+  end
+
   def self.followers(channel)
     names = Set.new
 
@@ -20,7 +24,12 @@ class Twitch
       delay = [1 - delta, 0].max
       sleep delay
 
-      json = JSON.parse(open(url, 'Accept' => 'application/vnd.twitchtv.v3+json').read)
+      headers = {
+        'Accept' => 'application/vnd.twitchtv.v3+json',
+        'Client-ID' => self.client_id
+      }
+
+      json = JSON.parse(open(url, headers).read)
       last_request = now
 
       batch = json['follows'].map { |f| f['user']['name'] }
@@ -212,11 +221,19 @@ end
 
 config = JSON.parse(File.read(config_file), symbolize_names: true)
 
-channel = config[:channel]
+channel = config[:twitch][:channel]
 if !channel
-  $log.error 'Configuration does not define channel.'
+  $log.error 'Channel is required.'
   exit 1
 end
+
+client_id = config[:twitch][:client_id]
+if !client_id
+  $log.error 'Client ID is required.'
+  exit 1
+end
+
+Twitch.client_id = client_id
 
 $log.info "Doing snapshot update for #{channel}."
 snapshot_dir = File.absolute_path(File.join(File.dirname(__FILE__), 'snapshots'))
