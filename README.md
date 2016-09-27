@@ -4,10 +4,12 @@ Track Twitch follows and unfollows. Unfollowerbot tracks your followers and emai
 
 ## Running
 
+Twitch requires a Client ID for all API requests. [Register your app with Twitch](https://www.twitch.tv/kraken/oauth2/clients/new) to get a Client ID.
+
 ```bash
 mkdir /srv/unfollowerbot && cd /srv/unfollowerbot
 curl -o config.json https://raw.githubusercontent.com/schmich/unfollowerbot/master/config.json.tpl
-# Edit config.json, specify the account to track, whom to email, and whom to send email as.
+# Edit config.json with your configuration.
 docker run --restart always -d -v /srv/unfollowerbot:/etc/unfollowerbot:ro schmich/unfollowerbot:latest
 # You can pick a stable tag from https://hub.docker.com/r/schmich/unfollowerbot/tags
 ```
