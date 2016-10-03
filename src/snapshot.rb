@@ -147,7 +147,7 @@ class Report
     Mail.deliver do
       to emails
       from "Unfollowerbot <#{address}>"
-      subject "Twitch follower report for #{Time.now.strftime('%m/%d')}"
+      subject "Twitch follower report for #{Time.now.strftime('%b %d')}"
 
       html_part do
         content_type 'text/html; charset=UTF-8'
