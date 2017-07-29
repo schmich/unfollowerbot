@@ -12,12 +12,13 @@ class Twitch
     attr_accessor :client_id
   end
 
-  def self.followers(channel)
+  def self.followers(channel_id)
     names = Set.new
 
     last_request = Time.now
 
-    follows_urls(channel) do |url|
+    cursor = nil
+    loop do
       # Sleep 1 second between requests.
       now = Time.now
       delta = now - last_request
@@ -25,46 +26,54 @@ class Twitch
       sleep delay
 
       headers = {
-        'Accept' => 'application/vnd.twitchtv.v3+json',
+        'Accept' => 'application/vnd.twitchtv.v5+json',
         'Client-ID' => self.client_id
       }
 
+      url = follows_url(channel_id, cursor)
       json = JSON.parse(open(url, headers).read)
       last_request = now
 
-      batch = json['follows'].map { |f| f['user']['name'] }
+      batch = json['follows'].map do |follower|
+        {
+          id: follower['user']['_id'],
+          name: follower['user']['display_name']
+        }
+      end
+
       break if batch.empty?
       names += batch
+
+      cursor = json['_cursor']
     end
 
     names.to_a
   end
 
-  def self.follows_urls(channel)
-    offset = 0
-    loop do
-      yield "https://api.twitch.tv/kraken/channels/#{channel}/follows?limit=100&offset=#{offset}&direction=ASC"
-      offset += 80
+  def self.follows_url(channel_id, cursor)
+    if cursor
+      "https://api.twitch.tv/kraken/channels/#{channel_id}/follows?limit=100&cursor=#{cursor}&direction=ASC"
+    else
+      "https://api.twitch.tv/kraken/channels/#{channel_id}/follows?limit=100&direction=ASC"
     end
   end
 end
 
 class Diff
   def initialize(before, after)
-    @before = before.dup
-    @after = after.dup
+    before = Set.new(before.dup)
+    after = Set.new(after.dup)
 
-    all_names = Set.new(@before + @after)
-    original_names = Hash[all_names.map(&:downcase).zip(all_names)]
+    names = Hash[(before + after).map { |f| [f[:id], f[:name]] }]
 
-    @before.map!(&:downcase)
-    @after.map!(&:downcase)
+    before_ids = Set.new(before.map { |f| f[:id] })
+    after_ids = Set.new(after.map { |f| f[:id] })
 
-    @removed = before - after
-    @added = after - before
+    removed = before_ids - after_ids
+    added = after_ids - before_ids
 
-    @removed.map! { |name| original_names[name] }
-    @added.map! { |name| original_names[name] }
+    @removed = removed.map { |id| names[id] }
+    @added = added.map { |id| names[id] }
   end
 
   def removed
@@ -77,24 +86,24 @@ class Diff
 end
 
 class Snapshot
-  def Snapshot.create(channel)
-    $log.info "Creating snapshot for #{channel}."
-    followers = Twitch.followers(channel)
-    Snapshot.new(channel, followers)
+  def Snapshot.create(channel_id)
+    $log.info "Creating snapshot for #{channel_id}."
+    followers = Twitch.followers(channel_id)
+    Snapshot.new(channel_id, followers)
   end
 
   def Snapshot.load(filename)
     File.open(filename, 'r') do |f|
-      obj = JSON.parse(f.read)
-      timestamp = Time.parse(obj['timestamp'])
-      return Snapshot.new(obj['channel'], obj['followers'], timestamp)
+      obj = JSON.parse(f.read, symbolize_names: true)
+      timestamp = Time.parse(obj[:timestamp])
+      return Snapshot.new(obj[:channel_id], obj[:followers], timestamp)
     end
   end
 
   def save(filename)
     File.open(filename, 'w') do |f|
       snapshot = {
-        channel: @channel,
+        channel_id: @channel_id,
         timestamp: @timestamp,
         followers: @followers
       }
@@ -102,12 +111,12 @@ class Snapshot
     end
   end
 
-  attr_accessor :channel, :followers, :timestamp
+  attr_accessor :channel_id, :followers, :timestamp
 
   private
 
-  def initialize(channel, followers, timestamp = Time.now.utc)
-    @channel = channel
+  def initialize(channel_id, followers, timestamp = Time.now.utc)
+    @channel_id = channel_id
     @followers = followers
     @timestamp = timestamp
   end
@@ -171,9 +180,9 @@ class SnapshotReportManager
     @snapshot_dir = snapshot_dir
   end
 
-  def update(channel)
+  def update(channel_id)
     FileUtils.mkdir_p(@snapshot_dir)
-    snapshot_filename = "#{@snapshot_dir}/#{channel.downcase}.json"
+    snapshot_filename = "#{@snapshot_dir}/#{channel_id}.json"
 
     begin
       $log.info 'Loading previous snapshot.'
@@ -182,7 +191,7 @@ class SnapshotReportManager
       $log.info 'Previous snapshot not found.'
     end
 
-    after = Snapshot.create(channel)
+    after = Snapshot.create(channel_id)
 
     begin
       if !before || !after
@@ -202,7 +211,7 @@ class SnapshotReportManager
         return
       end
 
-      $log.info "Sending report to #{emails.join(', ')} for #{channel}."
+      $log.info "Sending report to #{emails.join(', ')} for #{channel_id}."
       report.email(emails, @config[:email])
     ensure
       after.save(snapshot_filename)
@@ -221,9 +230,9 @@ end
 
 config = JSON.parse(File.read(config_file), symbolize_names: true)
 
-channel = config[:twitch][:channel]
-if !channel
-  $log.error 'Channel is required.'
+channel_id = config[:twitch][:channel_id]
+if !channel_id
+  $log.error 'Channel ID is required.'
   exit 1
 end
 
@@ -235,8 +244,8 @@ end
 
 Twitch.client_id = client_id
 
-$log.info "Doing snapshot update for #{channel}."
+$log.info "Doing snapshot update for #{channel_id}."
 snapshot_dir = File.absolute_path(File.join(File.dirname(__FILE__), 'snapshots'))
 manager = SnapshotReportManager.new(config, snapshot_dir)
-manager.update(channel)
+manager.update(channel_id)
 $log.info 'Fin.'
