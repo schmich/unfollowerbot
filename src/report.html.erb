@@ -3,16 +3,16 @@
 <% tz = ::TZInfo::Timezone.get('America/Chicago') %>
 <% since = tz.utc_to_local(before.timestamp.utc).strftime('%b %d %H:%M:%S %P').gsub(/\s*UTC/, '') %>
 Since <%= since %>
-<h3>Followers (+<%= added.length %>)</h3>
 <% if !added.empty? %>
+  <h3>Followers (+<%= added.length %>)</h3>
   <ul>
     <% added.each do |user| %>
       <li><a href="http://twitch.tv/<%= user %>/profile/following"><%= user %></a></li>
     <% end %>
   </ul>
 <% end %>
-<h3>Unfollowers (-<%= removed.length %>)</h3>
 <% if !removed.empty? %>
+  <h3>Unfollowers (-<%= removed.length %>)</h3>
   <ul>
     <% removed.each do |user| %>
       <li><a href="http://twitch.tv/<%= user %>/profile/following"><%= user %></a></li>
