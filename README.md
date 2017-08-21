@@ -20,5 +20,5 @@ docker run --name unfollowerbot \
 
 ## License
 
-Copyright &copy; 2016 Chris Schmich  
+Copyright &copy; 2015 Chris Schmich  
 MIT License. See [LICENSE](LICENSE) for details.
