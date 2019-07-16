@@ -7,7 +7,7 @@ Since <%= since %>
   <h3>Followers (+<%= added.length %>)</h3>
   <ul>
     <% added.each do |user| %>
-      <li><a href="http://twitch.tv/<%= user %>/profile/following"><%= user %></a></li>
+      <li><a href="http://twitch.tv/<%= user %>/following"><%= user %></a></li>
     <% end %>
   </ul>
 <% end %>
@@ -15,7 +15,7 @@ Since <%= since %>
   <h3>Unfollowers (-<%= removed.length %>)</h3>
   <ul>
     <% removed.each do |user| %>
-      <li><a href="http://twitch.tv/<%= user %>/profile/following"><%= user %></a></li>
+      <li><a href="http://twitch.tv/<%= user %>/following"><%= user %></a></li>
     <% end %>
   </ul>
 <% end %>
